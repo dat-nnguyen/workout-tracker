@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!.env.example
+
+# Prisma generated outputs & local DB files
+/generated/prisma
+*.sqlite
+*.sqlite-journal
+*.db
+
+# AI Assistant & Skill generated dependencies / caches
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Coverage and build outputs
+coverage/
+*.lcov
+.nyc_output/
+dist/
+build/
+
+# IDE & OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
