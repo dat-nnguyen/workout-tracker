@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,72 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  password  String
+  name      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  exercises Exercise[]
+  workouts  Workout[]
+}
+
+model Exercise {
+  id        String            @id @default(uuid())
+  userId    String?
+  user      User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  favorite  Boolean           @default(false)
+  category  String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  workouts  WorkoutExercise[]
+}
+
+model Workout {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  exercise WorkoutExercise[]
+}
+
+model WorkoutExercise {
+  id         String   @id @default(uuid())
+  workoutId  String
+  workout    Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  order      Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sets WorkoutSet[]
+
+  @@unique([workoutId, order])
+}
+
+model WorkoutSet {
+  id                String          @id @default(uuid())
+  workoutExerciseId String
+  workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  setNumber Int
+  reps      Int
+  weight    Float?
+  rpe       Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workoutExerciseId, setNumber])
 }
