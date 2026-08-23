@@ -20,12 +20,12 @@ services:
         generateValue: true
       - key: DATABASE_URL
         fromDatabase:
-          name: workout-tracker-db
+          name: workoutDB
           property: connectionString
 
 databases:
   # Managed PostgreSQL Database
-  - name: workout-tracker-db
+  - name: workoutDB
     plan: free
     region: oregon
     databaseName: workout_tracker
