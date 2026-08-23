@@ -6,7 +6,7 @@ dotenv.config();
  * List of critical environment variables required for the application to start.
  * @type {readonly string[]}
  */
-const requiredEnvVars = ['PORT', 'DATABASE_URL', 'JWT_SECRET', 'NODE_ENV'];
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
 
 // Validate that all required environment variables are set
 for (const envName of requiredEnvVars) {
@@ -30,12 +30,13 @@ for (const envName of requiredEnvVars) {
  * @type {EnvConfig}
  */
 export const env = {
-  PORT: parseInt(process.env.PORT || '3000', 10),
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: parseInt(process.env.PORT || '5000', 10),
+  NODE_ENV: process.env.NODE_ENV || 'production',
   JWT_SECRET: process.env.JWT_SECRET,
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1h',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   DATABASE_URL: process.env.DATABASE_URL,
   DIRECT_URL: process.env.DIRECT_URL,
 };
+
 
 export default env;
