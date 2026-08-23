@@ -29,4 +29,5 @@ databases:
     plan: free
     region: oregon
     databaseName: workout_tracker
-    user: postgres
+    user: workout_user
+
