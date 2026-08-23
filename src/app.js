@@ -2,7 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { env } from './config/env.js';
-
+import authRoutes from './modules/auth/auth.routes.js';
+import exerciseRoutes from './modules/exercises/exercise.routes.js';
+import { errorHandler } from './middlewares/error.middleware.js';
 /**
  * @type {import('express').Express} Express application.
  */
@@ -13,6 +15,13 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+//routes mounts
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/exercises', exerciseRoutes);
+
+// Error Handling Middleware
+app.use(errorHandler);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ 
