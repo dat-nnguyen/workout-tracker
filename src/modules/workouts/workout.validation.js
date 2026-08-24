@@ -137,10 +137,33 @@ export const workoutIdParamSchema = z.object({
     .min(1, 'Workout ID cannot be empty'),
 });
 
+/**
+ * Validation schema for updating an existing workout session (`PUT/PATCH /api/v1/workouts/:workoutId`).
+ */
+export const updateWorkoutSchema = z.object({
+  name: z.string().trim().min(1, 'Workout name cannot be empty').optional(),
+  startedAt: z
+    .string()
+    .datetime({ message: 'startedAt must be a valid ISO 8601 datetime' })
+    .optional(),
+  completedAt: z
+    .string()
+    .datetime({ message: 'completedAt must be a valid ISO 8601 datetime' })
+    .optional(),
+  exercises: z.array(createWorkoutExerciseSchema).optional(),
+});
+
+// Aliases for compatibility
+export const createWorkoutSchema = createWorkoutSessionSchema;
+export const getWorkoutQuerySchema = getWorkoutSchema;
+
 export default {
   workoutSetSchema,
   createWorkoutExerciseSchema,
   createWorkoutSessionSchema,
+  createWorkoutSchema,
+  updateWorkoutSchema,
   getWorkoutSchema,
+  getWorkoutQuerySchema,
   workoutIdParamSchema,
 };
