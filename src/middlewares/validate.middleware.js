@@ -43,7 +43,16 @@ export const validate = (schema, source = 'body') => {
         }
 
         // Replace request data with parsed, validated, and sanitized output
-        req[source] = result.data;
+        try {
+          req[source] = result.data;
+        } catch {
+          Object.defineProperty(req, source, {
+            value: result.data,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          });
+        }
         return next();
       }
 
@@ -54,10 +63,20 @@ export const validate = (schema, source = 'body') => {
           return next(new BadRequestError('Validation failed', result.error));
         }
         if (result?.data !== undefined) {
-          req[source] = result.data;
+          try {
+            req[source] = result.data;
+          } catch {
+            Object.defineProperty(req, source, {
+              value: result.data,
+              writable: true,
+              enumerable: true,
+              configurable: true,
+            });
+          }
         }
         return next();
       }
+
 
       return next();
     } catch (error) {

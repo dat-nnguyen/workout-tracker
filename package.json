@@ -11,7 +11,11 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "test": "node --test"
+    "test": "bash scripts/test-runner.sh",
+    "test:run": "cross-env NODE_OPTIONS=--experimental-vm-modules dotenv -e .env.test -- jest --runInBand",
+    "test:unit": "cross-env NODE_OPTIONS=--experimental-vm-modules jest tests/unit",
+    "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules dotenv -e .env.test -- jest tests/intergration --runInBand",
+    "test:db:setup": "dotenv -e .env.test -- prisma db push --accept-data-loss"
   },
   "repository": {
     "type": "git",
@@ -44,6 +48,11 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0"
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.2.0",
+    "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
   }
 }

@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+if (process.env.NODE_ENV === 'test') {
+  dotenv.config({ path: '.env.test', override: true });
+} else {
+  dotenv.config();
+}
+
 
 /**
  * List of critical environment variables required for the application to start.
