@@ -5,7 +5,8 @@ const PORT = env.PORT;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT} in [${env.NODE_ENV.toUpperCase()}] mode`);
-  console.log(`Check server health at http://localhost:${PORT}/health`)
+  console.log(`Swagger UI available at http://localhost:${PORT}/api/docs`);
+
 });
 
 /**
