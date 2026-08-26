@@ -12,6 +12,7 @@ import exerciseRoutes from './modules/exercises/exercise.routes.js';
 import workoutRoutes from './modules/workouts/workout.routes.js';
 import metricsRoutes from './modules/metrics/metrics.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
+import { generalApiRateLimiter } from './middlewares/rateLimiter.middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api', generalApiRateLimiter); // Apply rate limiting to /api routes
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
