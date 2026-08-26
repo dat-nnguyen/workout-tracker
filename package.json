@@ -14,7 +14,7 @@
     "test": "bash scripts/test-runner.sh",
     "test:run": "cross-env NODE_OPTIONS=--experimental-vm-modules dotenv -e .env.test -- jest --runInBand",
     "test:unit": "cross-env NODE_OPTIONS=--experimental-vm-modules jest tests/unit",
-    "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules dotenv -e .env.test -- jest tests/intergration --runInBand",
+    "test:integration": "cross-env NODE_OPTIONS=--experimental-vm-modules dotenv -e .env.test -- jest tests/integration --runInBand",
     "test:db:setup": "dotenv -e .env.test -- prisma db push --accept-data-loss"
   },
   "repository": {
