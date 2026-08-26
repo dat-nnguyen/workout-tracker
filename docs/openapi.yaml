@@ -1,0 +1,892 @@
+openapi: 3.0.3
+info:
+  title: Workout Tracker API
+  description: >
+    Production-grade RESTful API for tracking workouts, progressive overload volume metrics, 
+    exercise catalog management, and estimated 1RM calculations.
+  version: 1.0.0
+  contact:
+    name: Workout Tracker API Support
+servers:
+  - url: /
+    description: Current Server
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ==========================================
+  # AUTHENTICATION ENDPOINTS
+  # ==========================================
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Creates a new user profile with a hashed password.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user & issue JWT
+      description: Validates email and password credentials and returns a Bearer JWT.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # EXERCISE CATALOG ENDPOINTS
+  # ==========================================
+  /api/v1/exercises:
+    get:
+      tags:
+        - Exercises
+      summary: List visible exercises
+      description: Fetches global library exercises and custom user-created exercises with optional filters.
+      parameters:
+        - name: category
+          in: query
+          description: Filter exercises by muscle group / category (e.g. Chest, Legs, Back, Shoulders, Arms, Core)
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Filter exercises by name (case-insensitive substring match)
+          required: false
+          schema:
+            type: string
+        - name: favorite
+          in: query
+          description: Filter favorite exercises
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of exercises
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Exercises
+      summary: Create a custom exercise
+      description: Creates a custom exercise scoped to the authenticated user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExerciseRequest'
+      responses:
+        '201':
+          description: Custom exercise created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/exercises/{id}:
+    get:
+      tags:
+        - Exercises
+      summary: Get exercise by ID
+      description: Retrieves a single exercise by its unique UUID.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique exercise UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Exercise details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # WORKOUT SESSION ENDPOINTS
+  # ==========================================
+  /api/v1/workouts:
+    get:
+      tags:
+        - Workouts
+      summary: List workouts
+      description: Fetches a list of workouts for the authenticated user, ordered by startedAt descending.
+      parameters:
+        - name: startDate
+          in: query
+          description: ISO format starting timestamp
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: ISO format ending timestamp
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Workouts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Workouts
+      summary: Log a workout session
+      description: Creates a new workout session with nested exercises and sets.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkoutRequest'
+      responses:
+        '201':
+          description: Workout created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/workouts/{id}:
+    get:
+      tags:
+        - Workouts
+      summary: Get workout by ID
+      description: Fetches detailed workout information with nested exercises and sets. Multi-tenant isolated.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique workout UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workout retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Workouts
+      summary: Update workout session
+      description: Updates workout metadata or exercises/sets.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique workout UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkoutRequest'
+      responses:
+        '200':
+          description: Workout updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Workouts
+      summary: Delete workout session
+      description: Deletes a workout session and cascades deletion of related workout exercises and sets.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique workout UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workout deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Workout deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # METRICS & ANALYTICS ENDPOINTS
+  # ==========================================
+  /api/v1/metrics:
+    get:
+      tags:
+        - Metrics & Analytics
+      summary: Get volume progression metrics
+      description: Returns aggregated volume progression time-series for completed workouts.
+      parameters:
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: exerciseId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Volume metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumeMetricsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/metrics/volume:
+    get:
+      tags:
+        - Metrics & Analytics
+      summary: Get volume metrics (alias)
+      description: Alias endpoint for fetching volume progression time-series.
+      parameters:
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: exerciseId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Volume metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumeMetricsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/metrics/exercises/{exerciseId}:
+    get:
+      tags:
+        - Metrics & Analytics
+      summary: Get single exercise progression & estimated 1RM history
+      description: Calculates progression and estimated 1RM using the Epley formula across past workouts.
+      parameters:
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Exercise progression metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseProgressionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter your JWT Bearer token in the format `Bearer <token>`
+
+  schemas:
+    # ---------------- Auth Schemas ----------------
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: StrongP@ssw0rd!
+        name:
+          type: string
+          example: Jane Doe
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: StrongP@ssw0rd!
+
+    UserResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User registered successfully
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            name:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User logged in successfully
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+
+    # ---------------- Exercise Schemas ----------------
+    CreateExerciseRequest:
+      type: object
+      required:
+        - name
+        - category
+      properties:
+        name:
+          type: string
+          example: Incline Dumbbell Press
+        category:
+          type: string
+          example: Chest
+        favorite:
+          type: boolean
+          default: false
+
+    ExerciseItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        category:
+          type: string
+        favorite:
+          type: boolean
+        userId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ExerciseResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Exercise created successfully
+        data:
+          $ref: '#/components/schemas/ExerciseItem'
+
+    ExerciseListResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Exercises fetched successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseItem'
+
+    # ---------------- Workout Schemas ----------------
+    WorkoutSetInput:
+      type: object
+      required:
+        - setNumber
+        - reps
+        - weight
+      properties:
+        setNumber:
+          type: integer
+          minimum: 1
+          example: 1
+        reps:
+          type: integer
+          minimum: 1
+          example: 10
+        weight:
+          type: number
+          minimum: 0
+          example: 80.5
+        rpe:
+          type: number
+          minimum: 1
+          maximum: 10
+          nullable: true
+          example: 8.5
+        completed:
+          type: boolean
+          default: true
+
+    WorkoutExerciseInput:
+      type: object
+      required:
+        - exerciseId
+        - order
+        - sets
+      properties:
+        exerciseId:
+          type: string
+          format: uuid
+        order:
+          type: integer
+          minimum: 1
+          example: 1
+        sets:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WorkoutSetInput'
+
+    CreateWorkoutRequest:
+      type: object
+      required:
+        - name
+        - exercises
+      properties:
+        name:
+          type: string
+          example: Upper Body Power
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        exercises:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WorkoutExerciseInput'
+
+    UpdateWorkoutRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkoutExerciseInput'
+
+    WorkoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Workout created successfully
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            name:
+              type: string
+            startedAt:
+              type: string
+              format: date-time
+            completedAt:
+              type: string
+              format: date-time
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+            exercise:
+              type: array
+              items:
+                type: object
+
+    WorkoutListResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Workouts retrieved successfully
+        data:
+          type: array
+          items:
+            type: object
+
+    # ---------------- Metrics Schemas ----------------
+    VolumeBucket:
+      type: object
+      properties:
+        date:
+          type: string
+          example: '2026-08-01'
+        totalVolume:
+          type: number
+          example: 14250.00
+        totalSets:
+          type: integer
+          example: 24
+        totalReps:
+          type: integer
+          example: 210
+        workoutsCount:
+          type: integer
+          example: 1
+        maxWeight:
+          type: number
+          example: 100
+        maxEstimated1RM:
+          type: number
+          example: 120.0
+
+    VolumeMetricsResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Volume metrics retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeBucket'
+
+    ExerciseProgressionItem:
+      type: object
+      properties:
+        workoutId:
+          type: string
+          format: uuid
+        workoutName:
+          type: string
+        date:
+          type: string
+          format: date-time
+        totalVolume:
+          type: number
+        totalSets:
+          type: integer
+        maxWeight:
+          type: number
+        estimated1RM:
+          type: number
+
+    ExerciseProgressionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Exercise progression metrics retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseProgressionItem'
+
+    # ---------------- Error Schemas ----------------
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: fail
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: Invalid email format
+
+  responses:
+    BadRequestError:
+      description: Bad Request (Validation or parsing error)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: fail
+            message: Validation failed
+            errors:
+              - field: email
+                message: Invalid email format
+
+    UnauthorizedError:
+      description: Unauthorized (Missing or invalid JWT Bearer token)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: fail
+            message: Authentication token missing or invalid
+
+    NotFoundError:
+      description: Resource Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: fail
+            message: Workout not found
+
+    ConflictError:
+      description: Conflict (e.g. Duplicate email registration)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: fail
+            message: Email is already registered
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            message: Internal server error
