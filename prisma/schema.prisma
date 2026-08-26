@@ -42,6 +42,8 @@ model Workout {
   updatedAt   DateTime  @updatedAt
 
   exercise WorkoutExercise[]
+  @@index([userId, completedAt])
+  @@index([userId, startedAt])
 }
 
 model WorkoutExercise {
@@ -58,6 +60,7 @@ model WorkoutExercise {
   sets WorkoutSet[]
 
   @@unique([workoutId, order])
+  @@index([workoutId, exerciseId])
 }
 
 model WorkoutSet {

@@ -1,8 +1,11 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { invalidateCache } from '../src/config/redis.js';
 
 const prisma = new PrismaClient();
+
+await invalidateCache('exercises:global:cat:all:name:all');
 
 const defaultExercises = [
   // Chest
