@@ -15,41 +15,77 @@ let redisClient = null;
 let isRedisConnected = false;
 
 /**
+ * Flag to prevent concurrent connection attempts.
+ * @type {boolean}
+ */
+let isConnecting = false;
+
+/**
  * Initializes and connects the Redis client if REDIS_URL is configured.
- * Gracefully handles connection failures so the application falls back to direct database queries.
+ * Gracefully handles connection failures with a bounded reconnect strategy
+ * so the application falls back to direct database queries without hanging or spamming.
  *
  * @returns {Promise<import('redis').RedisClientType | null>} The connected Redis client or null.
  */
 export async function initRedis() {
+  if (redisClient && redisClient.isOpen) {
+    return redisClient;
+  }
+
   const redisUrl = env.REDIS_URL || process.env.REDIS_URL;
 
+  // If REDIS_URL is not set or running in test without Redis, bypass
   if (!redisUrl) {
-    logger.warn('⚠️ REDIS_URL not configured. Running without cache.');
     return null;
   }
 
-  redisClient = createClient({
-    url: redisUrl,
-  });
-
-  redisClient.on('connect', () => {
-    isRedisConnected = true;
-    logger.info('⚡ Redis connected successfully');
-  });
-
-  redisClient.on('error', (err) => {
-    isRedisConnected = false;
-    logger.error({ err }, `❌ Redis connection error: ${err.message}`);
-  });
-
-  try {
-    await redisClient.connect();
-  } catch (error) {
-    isRedisConnected = false;
-    logger.warn({ err: error }, '⚠️ Could not connect to Redis. Falling back to direct database queries.');
+  if (isConnecting) {
+    return redisClient;
   }
 
-  return redisClient;
+  try {
+    isConnecting = true;
+
+    redisClient = createClient({
+      url: redisUrl,
+      socket: {
+        connectTimeout: 2000,
+        reconnectStrategy: (retries) => {
+          // Stop reconnecting after 3 failed attempts to prevent memory leaks and log flooding
+          if (retries > 2) {
+            isRedisConnected = false;
+            return false;
+          }
+          return Math.min(retries * 200, 1000);
+        },
+      },
+    });
+
+    redisClient.on('connect', () => {
+      isRedisConnected = true;
+      logger.info('⚡ Redis connected successfully');
+    });
+
+    redisClient.on('error', (err) => {
+      isRedisConnected = false;
+      // Only log initial errors, avoid spamming on expected disconnects
+      if (err.code !== 'ECONNREFUSED' || env.NODE_ENV !== 'test') {
+        logger.warn({ err }, `⚠️ Redis connection notice: ${err.message}`);
+      }
+    });
+
+    await redisClient.connect();
+    isRedisConnected = true;
+    return redisClient;
+  } catch (error) {
+    isRedisConnected = false;
+    if (env.NODE_ENV !== 'test') {
+      logger.warn('⚠️ Redis unavailable. Falling back to direct database queries without cache/rate-limiting.');
+    }
+    return null;
+  } finally {
+    isConnecting = false;
+  }
 }
 
 /**
@@ -59,7 +95,7 @@ export async function initRedis() {
  * @returns {Promise<any | null>} Parsed cached data or null on miss/error.
  */
 export async function getCache(key) {
-  if (!isRedisConnected || !redisClient || !key) return null;
+  if (!isRedisConnected || !redisClient || !redisClient.isOpen || !key) return null;
 
   try {
     const data = await redisClient.get(key);
@@ -79,7 +115,7 @@ export async function getCache(key) {
  * @returns {Promise<void>}
  */
 export async function setCache(key, value, ttl = 3600) {
-  if (!isRedisConnected || !redisClient || !key) return;
+  if (!isRedisConnected || !redisClient || !redisClient.isOpen || !key) return;
 
   try {
     await redisClient.set(key, JSON.stringify(value), { EX: ttl });
@@ -95,7 +131,7 @@ export async function setCache(key, value, ttl = 3600) {
  * @returns {Promise<void>}
  */
 export async function delCache(key) {
-  if (!isRedisConnected || !redisClient || !key) return;
+  if (!isRedisConnected || !redisClient || !redisClient.isOpen || !key) return;
 
   try {
     await redisClient.del(key);
@@ -111,7 +147,7 @@ export async function delCache(key) {
  * @returns {Promise<void>}
  */
 export async function delPatternCache(pattern) {
-  if (!isRedisConnected || !redisClient || !pattern) return;
+  if (!isRedisConnected || !redisClient || !redisClient.isOpen || !pattern) return;
 
   try {
     const keys = await redisClient.keys(pattern);
@@ -129,7 +165,7 @@ export async function delPatternCache(pattern) {
  * @returns {Promise<void>}
  */
 export async function flushAll() {
-  if (!isRedisConnected || !redisClient) return;
+  if (!isRedisConnected || !redisClient || !redisClient.isOpen) return;
 
   try {
     await redisClient.flushAll();
@@ -145,7 +181,7 @@ export async function flushAll() {
  * @returns {Promise<void>}
  */
 export async function invalidateCache(keyPatternOrKey) {
-  if (!isRedisConnected || !redisClient || !keyPatternOrKey) return;
+  if (!isRedisConnected || !redisClient || !redisClient.isOpen || !keyPatternOrKey) return;
 
   try {
     if (keyPatternOrKey.includes('*')) {
@@ -167,7 +203,7 @@ export async function quitRedis() {
   if (!redisClient) return;
 
   try {
-    if (isRedisConnected) {
+    if (isRedisConnected && redisClient.isOpen) {
       await redisClient.quit();
     }
   } catch (err) {
@@ -175,9 +211,9 @@ export async function quitRedis() {
   } finally {
     redisClient = null;
     isRedisConnected = false;
+    isConnecting = false;
   }
 }
-
 
 export default {
   initRedis,
@@ -189,4 +225,3 @@ export default {
   quitRedis,
   invalidateCache,
 };
- 

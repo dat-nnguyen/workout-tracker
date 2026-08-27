@@ -43,7 +43,7 @@ export const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   DATABASE_URL: process.env.DATABASE_URL,
   DIRECT_URL: process.env.DIRECT_URL,
-  REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  REDIS_URL: process.env.REDIS_URL || (process.env.NODE_ENV === 'test' ? undefined : 'redis://localhost:6379'),
   QUEUE_NAME: process.env.QUEUE_NAME || 'workout-jobs',
 };
 

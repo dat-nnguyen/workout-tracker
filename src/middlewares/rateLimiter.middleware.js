@@ -1,57 +1,5 @@
-import { createClient } from 'redis';
-import { env } from '../config/env.js';
+import { initRedis } from '../config/redis.js';
 import { logger } from '../utils/logger.js';
-
-/**
- * Redis client instance for rate limiting.
- * @type {import('redis').RedisClientType | null}
- */
-let redisClient = null;
-
-/**
- * Connection in-progress flag to avoid concurrent connection attempts.
- * @type {boolean}
- */
-let isConnecting = false;
-
-/**
- * Resolves or connects the Redis client for distributed rate limiting.
- * Returns null if Redis is not configured or unavailable (graceful degradation).
- *
- * @returns {Promise<import('redis').RedisClientType | null>} The active Redis client or null.
- */
-async function getRedisClient() {
-  if (redisClient && redisClient.isOpen) {
-    return redisClient;
-  }
-
-  const redisUrl = env.REDIS_URL || process.env.REDIS_URL;
-  if (!redisUrl) {
-    return null;
-  }
-
-  if (isConnecting) {
-    return null;
-  }
-
-  try {
-    isConnecting = true;
-    redisClient = createClient({ url: redisUrl });
-
-    redisClient.on('error', (err) => {
-      logger.warn({ err }, `⚠️ Rate Limiter Redis Error: ${err.message}`);
-    });
-
-    await redisClient.connect();
-    return redisClient;
-  } catch (error) {
-    logger.warn({ err: error }, `⚠️ Rate Limiter could not connect to Redis: ${error.message}`);
-    redisClient = null;
-    return null;
-  } finally {
-    isConnecting = false;
-  }
-}
 
 /**
  * Extracts a unique client identifier for rate limiting.
@@ -84,9 +32,9 @@ export function rateLimiter({
 } = {}) {
   return async (req, res, next) => {
     try {
-      const client = await getRedisClient();
+      const client = await initRedis();
 
-      // Graceful fallback: If Redis is unavailable, allow the request to proceed
+      // Graceful fallback: If Redis is unavailable or unconfigured, allow the request to proceed
       if (!client || !client.isOpen) {
         return next();
       }
@@ -130,13 +78,11 @@ export function rateLimiter({
 
       return next();
     } catch (error) {
-      // Graceful degradation: Log error and allow request through if limiter fails
-      logger.warn({ err: error }, `⚠️ Rate Limiter Error (Bypassing): ${error.message}`);
+      // Graceful degradation: Log notice and allow request through if limiter fails
       return next();
     }
   };
 }
-
 
 /**
  * Strict Rate Limiter for Authentication Endpoints (Brute-force protection).
@@ -166,4 +112,3 @@ export default {
   generalApiRateLimiter,
   defaultKeyGenerator,
 };
-

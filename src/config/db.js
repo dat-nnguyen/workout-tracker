@@ -13,7 +13,7 @@ const poolConfig = {
     ...(isLocalDb ? {} : { ssl: { rejectUnauthorized: false } }),
 };
 
-const pool = new Pool(poolConfig);
+export const pool = new Pool(poolConfig);
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });
