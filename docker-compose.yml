@@ -1,4 +1,35 @@
 services:
+  # ==========================================
+  # Node.js API Service
+  # ==========================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: workout-tracker-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-workout_tracker}?schema=public"
+      DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-workout_tracker}?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "${JWT_SECRET:-production_super_secret_jwt_key_default_12345}"
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-7d}"
+      QUEUE_NAME: "${QUEUE_NAME:-workout-jobs}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - workout_net
+
+  # ==========================================
+  # PostgreSQL Database Service
+  # ==========================================
   postgres:
     image: postgres:16-alpine
     container_name: workout-tracker-postgres
@@ -16,7 +47,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - workout_net
+
+  # ==========================================
+  # Redis Cache & Rate Limiting Service
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: workout-tracker-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - workout_net
 
 volumes:
   postgres_data:
     driver: local
+  redis_data:
+    driver: local
+
+networks:
+  workout_net:
+    driver: bridge

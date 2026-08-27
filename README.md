@@ -1,5 +1,6 @@
-# 🏋️‍♂️ Workout Tracker & Progressive Overload Analytics API
+# 🏋️‍♂️ Fitness & Workout Tracker API
 
+[![Roadmap Project](https://img.shields.io/badge/roadmap.sh-Fitness%20Workout%20Tracker-purple.svg)](https://roadmap.sh/projects/fitness-workout-tracker)
 [![CI Pipeline](https://github.com/dat-nnguyen/workout-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/dat-nnguyen/workout-tracker/actions)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Express 5](https://img.shields.io/badge/express-v5.2.1-blue.svg)](https://expressjs.com/)
@@ -10,7 +11,7 @@
 [![Jest Tested](https://img.shields.io/badge/tests-Jest%20(26%2F26%20Passed)-C21325.svg)](https://jestjs.io/)
 [![OpenAPI 3.0](https://img.shields.io/badge/docs-OpenAPI%203.0%20%2F%20Swagger-85EA2D.svg)](http://localhost:5000/api/docs)
 
-A production-ready, high-throughput RESTful API for workout tracking, progressive overload analytics, exercise catalog management, and estimated 1RM calculations. Built with **Node.js (ESM)**, **Express 5**, **PostgreSQL**, **Prisma ORM**, and **Redis**.
+A production-ready, high-throughput RESTful backend API for workout tracking, progressive overload analytics, exercise catalog management, and estimated 1RM calculations. Built in compliance with the **[roadmap.sh Fitness Workout Tracker](https://roadmap.sh/projects/fitness-workout-tracker)** specification using **Node.js (ESM)**, **Express 5**, **PostgreSQL**, **Prisma ORM**, and **Redis**.
 
 ---
 
@@ -24,12 +25,13 @@ A production-ready, high-throughput RESTful API for workout tracking, progressiv
 - [Getting Started](#-getting-started)
   - [Prerequisites](#prerequisites)
   - [Environment Configuration](#environment-configuration)
-  - [Installation & Database Setup](#installation--database-setup)
-  - [Running the Application](#running-the-application)
-- [Docker & Containerization](#-docker--containerization)
+  - [Local Installation & Setup](#local-installation--setup)
+  - [Available NPM Scripts](#available-npm-scripts)
+- [Multi-Service Local Production Stack (Docker Compose)](#-multi-service-local-production-stack-docker-compose)
 - [Testing & Quality Assurance](#-testing--quality-assurance)
 - [Project Directory Structure](#-project-directory-structure)
 - [Deployment](#-deployment)
+- [Roadmap Reference](#-roadmap-reference)
 - [License](#-license)
 
 ---
@@ -40,6 +42,8 @@ A production-ready, high-throughput RESTful API for workout tracking, progressiv
 - **Multi-Tenant Security & IDOR Prevention**: Robust tenant isolation ensuring zero cross-user data leakage. All sensitive workout, set, and custom exercise queries are strictly scoped to the authenticated user ID.
 - **Redis Cache-Aside Strategy**: Caches global standard exercise catalog queries with automated expiration (1h TTL) and invalidation hooks, reducing PostgreSQL read pressure by ~95% and lowering query latency to **< 2ms**.
 - **Distributed Sliding-Window Rate Limiter**: High-precision rate limiting middleware built with Redis Sorted Sets (`ZSET` atomic pipelines) defending auth and API routes against brute-force attacks and spam.
+- **Structured JSON Logging & Traceability**: Integrated **Pino** structured logging with unique correlation request IDs (`X-Request-Id`) attached to every request context and error report.
+- **Graceful Shutdown & Connection Drain**: Handles `SIGTERM`, `SIGINT`, and unhandled rejections cleanly, draining in-flight HTTP requests before closing PostgreSQL and Redis pools.
 - **Strict Input Validation**: All incoming request bodies, query strings, and path parameters are validated using **Zod** with custom refinement rules (e.g., date boundary verification).
 - **Automated CI/CD Pipeline**: GitHub Actions continuous integration workflow launching ephemeral PostgreSQL service containers, syncing database schemas, running full test suites, and validating multi-stage Docker builds.
 
@@ -145,6 +149,7 @@ sequenceDiagram
 | **Database** | [PostgreSQL](https://www.postgresql.org/) (v16) | Relational SQL database with composite indexes |
 | **ORM** | [Prisma ORM](https://www.prisma.io/) (v6.12.0) | Type-safe database client with `@prisma/adapter-pg` |
 | **Caching & Limiting** | [Redis](https://redis.io/) (v7) | In-memory Cache-Aside + ZSET sliding-window rate limiter |
+| **Logging** | [Pino](https://getpino.io/) & [pino-http](https://github.com/pinojs/pino-http) | Ultra-fast structured JSON logger with correlation IDs |
 | **Authentication** | [JWT](https://jwt.io/) & [bcryptjs](https://github.com/dcodeIO/bcrypt.js) | Stateless Bearer token security & password hashing |
 | **Validation** | [Zod](https://zod.dev/) (v4) | Strict runtime schema parsing and error formatting |
 | **Documentation** | [Swagger UI](https://swagger.io/) & [OpenAPI 3.0](https://www.openapis.org/) | Interactive API documentation at `/api/docs` |
@@ -159,7 +164,7 @@ sequenceDiagram
 Interactive Swagger documentation is exposed directly on the running application:
 
 - **Swagger UI**: [http://localhost:5000/api/docs](http://localhost:5000/api/docs)
-- **Raw OpenAPI Spec**: `docs/openapi.yaml`
+- **Raw OpenAPI Spec**: [docs/openapi.yaml](docs/openapi.yaml)
 
 To test authenticated endpoints in Swagger UI:
 1. Register/Login via `POST /api/v1/auth/login`.
@@ -235,8 +240,9 @@ NODE_ENV=development
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workout_tracker?schema=public"
 DIRECT_URL="postgresql://postgres:postgres@localhost:5432/workout_tracker?schema=public"
 
-# Redis Cache & Rate Limiting
+# Redis Cache, Rate Limiting & Queue
 REDIS_URL="redis://localhost:6379"
+QUEUE_NAME="workout-jobs"
 
 # JWT Authentication
 JWT_SECRET="your_super_secret_production_ready_jwt_key_here"
@@ -259,16 +265,16 @@ JWT_EXPIRES_IN="1h"
 
 ---
 
-### Installation & Database Setup
+### Local Installation & Setup
 
 1. **Install Dependencies**:
    ```bash
    npm install
    ```
 
-2. **Start Local PostgreSQL and Redis via Docker Compose**:
+2. **Start Local PostgreSQL and Redis Services**:
    ```bash
-   docker compose up -d
+   docker compose up postgres redis -d
    ```
 
 3. **Push Prisma Schema to Database**:
@@ -281,39 +287,45 @@ JWT_EXPIRES_IN="1h"
    npm run db:seed
    ```
 
----
-
-### Running the Application
-
-```bash
-# Start in development mode with hot-reloading
-npm run dev
-
-# Start in production mode
-npm start
-```
-
-The server will boot on `http://localhost:5000`. Access Swagger UI at `http://localhost:5000/api/docs`.
+5. **Start Application**:
+   ```bash
+   npm run dev
+   ```
 
 ---
 
-## 🐳 Docker & Containerization
+### Available NPM Scripts
 
-The application includes a lean, hardened **multi-stage Dockerfile** using `node:20-alpine`:
+| Script | Command | Description |
+| :--- | :--- | :--- |
+| `npm start` | `node src/server.js` | Runs production server |
+| `npm run dev` | `node --watch src/server.js` | Runs server with hot-reload watcher |
+| `npm test` | `bash scripts/test-runner.sh` | Executes full unit + integration test suite with isolated DB sync |
+| `npm run test:unit` | `jest tests/unit` | Runs fast standalone unit tests |
+| `npm run test:integration` | `jest tests/integration` | Runs API integration tests with isolated test DB |
+| `npm run db:push` | `prisma db push` | Pushes Prisma schema to local database |
+| `npm run db:migrate` | `prisma migrate deploy` | Applies pending production database migrations |
+| `npm run db:seed` | `prisma db seed` | Seeds database with standard exercises catalog |
 
-### Build Docker Image
+---
+
+## 🐳 Multi-Service Local Production Stack (Docker Compose)
+
+You can launch the entire ecosystem (**Express API + PostgreSQL 16 + Redis 7**) inside a single unified Docker bridge network with one command:
+
 ```bash
-docker build -t workout-tracker:latest .
+docker compose up --build -d
 ```
 
-### Run Container
+### Stack Verification:
+- **API Health Check**: `curl http://localhost:5000/health`
+- **Swagger Documentation**: `http://localhost:5000/api/docs`
+- **PostgreSQL Health**: Automated healthcheck via `pg_isready`
+- **Redis Health**: Automated healthcheck via `redis-cli ping`
+
+To stop the stack:
 ```bash
-docker run -p 5000:5000 \
-  -e DATABASE_URL="postgresql://user:pass@host:5432/workout_tracker" \
-  -e DIRECT_URL="postgresql://user:pass@host:5432/workout_tracker" \
-  -e REDIS_URL="redis://host:6379" \
-  -e JWT_SECRET="production_jwt_secret" \
-  workout-tracker:latest
+docker compose down
 ```
 
 ---
@@ -325,15 +337,6 @@ The test suite runs with **Jest** and native **Node.js ES Modules** against an *
 ```bash
 # Run all unit and integration tests (with automated test DB sync)
 npm test
-
-# Run unit tests only (fast execution, no DB required)
-npm run test:unit
-
-# Run integration tests only (verifying API routes, IDOR security, and database cascades)
-npm run test:integration
-
-# Manually push schema to test database
-npm run test:db:setup
 ```
 
 ### Test Suite Summary
@@ -388,6 +391,7 @@ workout-tracker/
 │   │   ├── auth.middleware.js     # JWT Bearer token authentication middleware
 │   │   ├── error.middleware.js    # Centralized operational error handler & custom AppError classes
 │   │   ├── rateLimiter.middleware.js # Distributed sliding-window Redis rate limiter
+│   │   ├── requestId.middleware.js   # Request correlation ID middleware (X-Request-Id)
 │   │   └── validate.middleware.js # Zod schema validation middleware
 │   ├── modules/
 │   │   ├── auth/                 # Authentication module (Register, Login, JWT tokens)
@@ -396,7 +400,7 @@ workout-tracker/
 │   │   └── workouts/             # Workout logging & nested set/exercise relations
 │   ├── utils/
 │   │   ├── jwt.js                # JWT signing and verification helpers
-│   │   ├── logger.js             # Formatted request/error logger
+│   │   ├── logger.js             # Pino structured request and application logger
 │   │   └── password.js           # Bcrypt hashing & comparison helpers
 │   ├── app.js                    # Express app initialization & route mounts
 │   └── server.js                 # HTTP server listener & graceful shutdown handlers
@@ -417,7 +421,7 @@ workout-tracker/
 ├── .dockerignore
 ├── .env.example
 ├── .env.test
-├── docker-compose.yml            # Local PostgreSQL 16 & Redis 7 services
+├── docker-compose.yml            # Multi-service stack (API + PostgreSQL 16 + Redis 7)
 ├── Dockerfile                    # Hardened multi-stage container build
 ├── jest.config.js                # Jest native ESM configuration
 ├── package.json
@@ -428,10 +432,16 @@ workout-tracker/
 
 ## 🚢 Deployment
 
-The repository includes a ready-to-use [render.yaml](file:///Users/datnguyen/Documents/project/workout-tracker/render.yaml) configuration for 1-click Blueprints deployment on **Render**:
+The repository includes a ready-to-use [render.yaml](render.yaml) configuration for 1-click Blueprints deployment on **Render**:
 
 - **Web Service**: Node.js container executing `npm run build && npm run db:migrate && npm start`.
 - **Database**: Managed PostgreSQL instance with SSL enabled.
+
+---
+
+## 🎯 Roadmap Reference
+
+This project was built following the **[roadmap.sh Fitness Workout Tracker Project Specification](https://roadmap.sh/projects/fitness-workout-tracker)**.
 
 ---
 
