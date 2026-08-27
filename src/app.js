@@ -13,6 +13,8 @@ import workoutRoutes from './modules/workouts/workout.routes.js';
 import metricsRoutes from './modules/metrics/metrics.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { generalApiRateLimiter } from './middlewares/rateLimiter.middleware.js';
+import { requestIdMiddleware } from './middlewares/requestId.middleware.js';
+import { httpLogger } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,12 +29,18 @@ const swaggerDocument = YAML.parse(openApiFile);
  */
 export const app = express();
 
-// Standard Middleware
+// Standard Security & Body Parsing Middleware
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request Correlation ID & Structured HTTP Logging
+app.use(requestIdMiddleware);
+app.use(httpLogger);
+
 app.use('/api', generalApiRateLimiter); // Apply rate limiting to /api routes
+
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {

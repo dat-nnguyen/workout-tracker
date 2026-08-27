@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Base Application Error class for operational errors.
@@ -133,8 +134,17 @@ export const errorHandler = (err, req, res, next) => {
   const statusCode = error.statusCode || 500;
   const status = error.status || 'error';
 
-  // 1. Operational, trusted error: send formatted response to client
+  // 1. Operational, trusted error: log warning and send formatted response to client
   if (error.isOperational) {
+    logger.warn({
+      requestId: req.id || req.requestId,
+      method: req.method,
+      url: req.originalUrl || req.url,
+      statusCode,
+      message: error.message,
+      details: error.details,
+    });
+
     return res.status(statusCode).json({
       status,
       message: error.message,
@@ -143,8 +153,14 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // 2. Programming / unknown non-operational error: log raw error with stack trace for developers
-  console.error(`💥 [Unhandled Error] ${req.method} ${req.originalUrl}:`, error);
+  // 2. Programming / unknown non-operational error: log structured error with stack trace
+  logger.error({
+    err: error,
+    requestId: req.id || req.requestId,
+    method: req.method,
+    url: req.originalUrl || req.url,
+    statusCode: 500,
+  }, `Unhandled Error: ${error.message}`);
 
   // In development, send detailed error info for debugging
   if (env.NODE_ENV === 'development') {
