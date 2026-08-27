@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import { env } from './env.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Redis client instance.
@@ -20,10 +21,10 @@ let isRedisConnected = false;
  * @returns {Promise<import('redis').RedisClientType | null>} The connected Redis client or null.
  */
 export async function initRedis() {
-  const redisUrl = process.env.REDIS_URL || env.REDIS_URL;
+  const redisUrl = env.REDIS_URL || process.env.REDIS_URL;
 
   if (!redisUrl) {
-    console.warn('⚠️ REDIS_URL not configured. Running without cache.');
+    logger.warn('⚠️ REDIS_URL not configured. Running without cache.');
     return null;
   }
 
@@ -33,19 +34,19 @@ export async function initRedis() {
 
   redisClient.on('connect', () => {
     isRedisConnected = true;
-    console.log('⚡ Redis connected successfully');
+    logger.info('⚡ Redis connected successfully');
   });
 
   redisClient.on('error', (err) => {
     isRedisConnected = false;
-    console.error('❌ Redis error:', err.message);
+    logger.error({ err }, `❌ Redis connection error: ${err.message}`);
   });
 
   try {
     await redisClient.connect();
   } catch (error) {
     isRedisConnected = false;
-    console.warn('⚠️ Could not connect to Redis. Fallback to direct DB queries.');
+    logger.warn({ err: error }, '⚠️ Could not connect to Redis. Falling back to direct database queries.');
   }
 
   return redisClient;
@@ -64,7 +65,7 @@ export async function getCache(key) {
     const data = await redisClient.get(key);
     return data ? JSON.parse(data) : null;
   } catch (err) {
-    console.error(`Redis GET error for key "${key}":`, err.message);
+    logger.error({ err, key }, `Redis GET error for key "${key}": ${err.message}`);
     return null;
   }
 }
@@ -83,7 +84,7 @@ export async function setCache(key, value, ttl = 3600) {
   try {
     await redisClient.set(key, JSON.stringify(value), { EX: ttl });
   } catch (err) {
-    console.error(`Redis SET error for key "${key}":`, err.message);
+    logger.error({ err, key }, `Redis SET error for key "${key}": ${err.message}`);
   }
 }
 
@@ -99,7 +100,7 @@ export async function delCache(key) {
   try {
     await redisClient.del(key);
   } catch (err) {
-    console.error(`Redis DEL error for key "${key}":`, err.message);
+    logger.error({ err, key }, `Redis DEL error for key "${key}": ${err.message}`);
   }
 }
 
@@ -118,7 +119,7 @@ export async function delPatternCache(pattern) {
       await redisClient.del(keys);
     }
   } catch (err) {
-    console.error(`Redis delPattern error for pattern "${pattern}":`, err.message);
+    logger.error({ err, pattern }, `Redis delPattern error for pattern "${pattern}": ${err.message}`);
   }
 }
 
@@ -133,7 +134,7 @@ export async function flushAll() {
   try {
     await redisClient.flushAll();
   } catch (err) {
-    console.error('Redis flushAll error:', err.message);
+    logger.error({ err }, `Redis flushAll error: ${err.message}`);
   }
 }
 
@@ -153,7 +154,7 @@ export async function invalidateCache(keyPatternOrKey) {
       await redisClient.del(keyPatternOrKey);
     }
   } catch (err) {
-    console.warn(`Redis invalidateCache error for "${keyPatternOrKey}":`, err.message);
+    logger.warn({ err, key: keyPatternOrKey }, `Redis invalidateCache error for "${keyPatternOrKey}": ${err.message}`);
   }
 }
 
@@ -170,12 +171,13 @@ export async function quitRedis() {
       await redisClient.quit();
     }
   } catch (err) {
-    console.error('Redis quit error:', err.message);
+    logger.error({ err }, `Redis quit error: ${err.message}`);
   } finally {
     redisClient = null;
     isRedisConnected = false;
   }
 }
+
 
 export default {
   initRedis,

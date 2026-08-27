@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Redis client instance for rate limiting.
@@ -24,7 +25,7 @@ async function getRedisClient() {
     return redisClient;
   }
 
-  const redisUrl = process.env.REDIS_URL || env.REDIS_URL;
+  const redisUrl = env.REDIS_URL || process.env.REDIS_URL;
   if (!redisUrl) {
     return null;
   }
@@ -38,13 +39,13 @@ async function getRedisClient() {
     redisClient = createClient({ url: redisUrl });
 
     redisClient.on('error', (err) => {
-      console.warn('⚠️ Rate Limiter Redis Error:', err.message);
+      logger.warn({ err }, `⚠️ Rate Limiter Redis Error: ${err.message}`);
     });
 
     await redisClient.connect();
     return redisClient;
   } catch (error) {
-    console.warn('⚠️ Rate Limiter could not connect to Redis:', error.message);
+    logger.warn({ err: error }, `⚠️ Rate Limiter could not connect to Redis: ${error.message}`);
     redisClient = null;
     return null;
   } finally {
@@ -130,11 +131,12 @@ export function rateLimiter({
       return next();
     } catch (error) {
       // Graceful degradation: Log error and allow request through if limiter fails
-      console.warn('⚠️ Rate Limiter Error (Bypassing):', error.message);
+      logger.warn({ err: error }, `⚠️ Rate Limiter Error (Bypassing): ${error.message}`);
       return next();
     }
   };
 }
+
 
 /**
  * Strict Rate Limiter for Authentication Endpoints (Brute-force protection).

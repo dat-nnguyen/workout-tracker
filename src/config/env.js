@@ -28,6 +28,8 @@ for (const envName of requiredEnvVars) {
  * @property {string} JWT_EXPIRES_IN - Expiration duration for JWT tokens (e.g. '1h', '7d').
  * @property {string} DATABASE_URL - Connection string for the PostgreSQL database (pooled connection).
  * @property {string | undefined} [DIRECT_URL] - Direct connection string for Prisma migrations (bypassing connection pooling).
+ * @property {string | undefined} [REDIS_URL] - Connection URL for Redis caching, rate limiting, and background queues.
+ * @property {string} [QUEUE_NAME] - Default name of the background task queue.
  */
 
 /**
@@ -41,7 +43,8 @@ export const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   DATABASE_URL: process.env.DATABASE_URL,
   DIRECT_URL: process.env.DIRECT_URL,
+  REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  QUEUE_NAME: process.env.QUEUE_NAME || 'workout-jobs',
 };
-
 
 export default env;
